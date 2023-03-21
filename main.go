@@ -1,14 +1,13 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
+	"log"
 	"net/http"
 
 	entity "github.com/cassiusbessa/create-service/entity"
 	errors "github.com/cassiusbessa/create-service/errors"
 	repository "github.com/cassiusbessa/create-service/repository"
-	"github.com/gorilla/mux"
+	"github.com/gin-gonic/gin"
 )
 
 type Response struct {
@@ -17,42 +16,34 @@ type Response struct {
 
 var _, cancel = repository.MongoConnection()
 
-func CreateService(res http.ResponseWriter, req *http.Request) {
-	res.Header().Add("content-type", "application/json")
+func CreateService(c *gin.Context) {
 	var service entity.Service
-	err := json.NewDecoder(req.Body).Decode(&service)
-	if err != nil {
-		errors.SendError(res, http.StatusBadRequest, Response{"Invalid request payload"})
+	if err := c.BindJSON(&service); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
 		return
 	}
 
-	validateError := service.Validate()
-	if validateError != nil {
-		errors.SendError(res, http.StatusBadRequest, validateError)
+	if err := service.Validate(); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err})
 		return
 	}
 
-	db := mux.Vars(req)["company"]
-	err = repository.CreateService(db, service)
-	if err != nil {
+	db := c.Param("company")
+	if err := repository.CreateService(db, service); err != nil {
 		repository.SaveError(db, *errors.NewError(http.StatusInternalServerError, "Error Mongo creating service", "CreateService", err))
-		errors.SendError(res, http.StatusInternalServerError, err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	res.WriteHeader(http.StatusCreated)
-	err = json.NewEncoder(res).Encode(Response{Message: "Service created successfully"})
-	if err != nil {
-		repository.SaveError(db, *errors.NewError(http.StatusInternalServerError, "Error encoding response", "CreateService", err))
-		errors.SendError(res, http.StatusInternalServerError, err.Error())
-		return
-	}
+	c.JSON(http.StatusCreated, gin.H{"message": "Service created successfully"})
+
 	defer cancel()
 }
 
 func main() {
-	router := mux.NewRouter()
-	router.HandleFunc("/service/{company}", CreateService).Methods("POST")
-	fmt.Println("Server is running on port 8080")
-	http.ListenAndServe(":8080", router)
+	r := gin.Default()
+	r.POST("/service/:company", CreateService)
 
+	if err := r.Run(":8080"); err != nil {
+		log.Fatal(err)
+	}
 }
