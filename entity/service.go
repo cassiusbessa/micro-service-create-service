@@ -12,19 +12,19 @@ type Service struct {
 	MinPrice    float32            `json:"min_price,omitempty" bson:"min_price" validate:"gte=0"`
 }
 
-type Error struct {
+type ValidateError struct {
 	Param string `json:"param"`
 	Msg   string `json:"msg"`
 }
 
-func (c *Service) Validate() []Error {
+func (c *Service) Validate() []ValidateError {
 	valid := validator.New()
 	err := valid.Struct(c)
 	if err != nil {
 		validationErrors := err.(validator.ValidationErrors)
-		out := make([]Error, len(validationErrors))
+		out := make([]ValidateError, len(validationErrors))
 		for i, e := range validationErrors {
-			out[i] = Error{e.Field(), message(e)}
+			out[i] = ValidateError{e.Field(), message(e)}
 		}
 		return out
 	}

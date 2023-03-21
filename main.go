@@ -35,12 +35,14 @@ func CreateService(res http.ResponseWriter, req *http.Request) {
 	db := mux.Vars(req)["company"]
 	err = repository.CreateService(db, service)
 	if err != nil {
+		repository.SaveError(db, *errors.NewError(http.StatusInternalServerError, "Error Mongo creating service", "CreateService", err))
 		errors.SendError(res, http.StatusInternalServerError, err.Error())
 		return
 	}
 	res.WriteHeader(http.StatusCreated)
 	err = json.NewEncoder(res).Encode(Response{Message: "Service created successfully"})
 	if err != nil {
+		repository.SaveError(db, *errors.NewError(http.StatusInternalServerError, "Error encoding response", "CreateService", err))
 		errors.SendError(res, http.StatusInternalServerError, err.Error())
 		return
 	}

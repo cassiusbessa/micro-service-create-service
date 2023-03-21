@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/cassiusbessa/create-service/entity"
+	"github.com/cassiusbessa/create-service/errors"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -33,4 +34,14 @@ func CreateService(db string, service entity.Service) error {
 	}
 	defer cancel()
 	return nil
+}
+
+func SaveError(db string, customErr errors.CustomError) {
+	collection := client.Database(db).Collection("errors")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	_, err := collection.InsertOne(ctx, customErr)
+	if err != nil {
+		cancel()
+	}
+	defer cancel()
 }
